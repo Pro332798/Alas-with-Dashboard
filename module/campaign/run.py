@@ -2,7 +2,6 @@ import copy
 import importlib
 import os
 import random
-import re
 
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.campaign_event import CampaignEvent
@@ -171,7 +170,6 @@ class CampaignRun(CampaignEvent, ShopStatus):
         Returns:
             str, str: name, folder
         """
-        name = re.sub('[ \t\n]', '', str(name)).lower()
         name = to_map_file_name(name)
         # For GemsFarming, auto choose events or main chapters
         if self.config.task.command == 'GemsFarming':
@@ -220,6 +218,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
         if folder in [
             'event_20211125_cn',
             'event_20231026_cn',
+            'event_20241024_cn',
         ]:
             name = convert.get(name, name)
         # Convert between A/B/C/D and T/HT
@@ -246,6 +245,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
             'event_20211125_cn',
             'event_20231026_cn',
             'event_20231123_cn',
+            'event_20240725_cn',
+            'event_20240829_cn',
+            'event_20241024_cn',
+            'event_20241121_cn',
         ]:
             name = convert.get(name, name)
         else:
@@ -275,6 +278,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
         if folder == 'event_20230817_cn':
             if name.startswith('e0'):
                 name = 'a1'
+        # event_20240829_cn, TP -> SP
+        if folder == 'event_20240829_cn':
+            if name == 'tp':
+                name = 'sp'
         # Stage loop
         for alias, stages in self.config.STAGE_LOOP_ALIAS.items():
             alias_folder, alias = alias
@@ -368,7 +375,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
                     logger.info('In auto search menu, skip ensure_campaign_ui.')
                 else:
                     logger.info('In auto search menu, closing.')
-                    self.campaign.ensure_auto_search_exit()
+                    # Because event_20240725 task balancer delete self.campaign.ensure_auto_search_exit()
                     self.campaign.ensure_campaign_ui(name=self.stage, mode=mode)
             else:
                 self.campaign.ensure_campaign_ui(name=self.stage, mode=mode)

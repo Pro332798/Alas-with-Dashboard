@@ -6,6 +6,7 @@ from module.base.filter import Filter
 from module.base.timer import Timer
 from module.base.utils import *
 from module.combat.level import LevelOcr
+from module.config.utils import get_server_next_update
 from module.exception import ScriptError
 from module.handler.assets import GET_MISSION, MISSION_POPUP_ACK, MISSION_POPUP_GO, POPUP_CANCEL, POPUP_CONFIRM
 from module.logger import logger
@@ -19,7 +20,10 @@ from module.ui.page import page_reward
 from module.ui_white.assets import REWARD_2_WHITE, REWARD_GOTO_TACTICAL_WHITE
 
 SKILL_GRIDS = ButtonGrid(origin=(315, 140), delta=(621, 132), button_shape=(621, 119), grid_shape=(1, 3), name='SKILL')
-SKILL_LEVEL_GRIDS = SKILL_GRIDS.crop(area=(406, 98, 618, 116), name='EXP')
+if server.server != 'jp':
+    SKILL_LEVEL_GRIDS = SKILL_GRIDS.crop(area=(406, 98, 618, 116), name='EXP')
+else:
+    SKILL_LEVEL_GRIDS = SKILL_GRIDS.crop(area=(406, 98, 621, 118), name='EXP')
 
 
 class ExpOnBookSelect(DigitCounter):
@@ -48,6 +52,9 @@ class ExpOnBookSelect(DigitCounter):
         if server.server == 'en':
             # Bold `Next:`
             image = image_left_strip(image, threshold=105, length=46)
+        elif server.server == 'jp':
+            # Wide `Next:`
+            image = image_left_strip(image, threshold=105, length=55)
         else:
             image = image_left_strip(image, threshold=105, length=42)
         return image
@@ -80,6 +87,9 @@ class ExpOnSkillSelect(Ocr):
         if server.server == 'en':
             # Bold `Next:`
             image = image_left_strip(image, threshold=105, length=46)
+        elif server.server == 'jp':
+            # Wide `Next:`
+            image = image_left_strip(image, threshold=105, length=53)
         else:
             image = image_left_strip(image, threshold=105, length=42)
         return image
@@ -130,7 +140,7 @@ class Book:
             image (np.ndarray):
             button (Button):
         """
-        image = crop(image, button.area)
+        image = crop(image, button.area, copy=False)
         self.button = button
 
         # During the test of 40 random screenshots,
@@ -148,7 +158,7 @@ class Book:
             if color_similar(color1=color, color2=value, threshold=50):
                 self.tier = key
 
-        color = color_similarity_2d(crop(image, (15, 0, 97, 13)), color=(148, 251, 99))
+        color = color_similarity_2d(crop(image, (15, 0, 97, 13), copy=False), color=(148, 251, 99))
         self.exp = bool(np.sum(color > 221) > 50)
 
         self.valid = bool(self.genre and self.tier)
@@ -166,7 +176,7 @@ class Book:
         """
         area = self.button.area
         check_area = tuple([area[0], area[3] + 2, area[2], area[3] + 4])
-        im = rgb2gray(crop(image, check_area))
+        im = rgb2gray(crop(image, check_area, copy=False))
         return True if np.mean(im) > 127 else False
 
     def __str__(self):
@@ -233,17 +243,22 @@ class RewardTacticalClass(Dock):
             book (Book):
             skip_first_screenshot (bool):
         """
+        logger.info(f'Book select {book}')
+        interval = Timer(2, count=6)
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
             else:
                 self.device.screenshot()
 
-            if not book.check_selected(self.device.image):
-                self.device.click(book.button)
-                self.device.sleep((0.3, 0.5))
-            else:
+            # End
+            if book.check_selected(self.device.image):
                 break
+
+            if interval.reached():
+                self.device.click(book.button)
+                interval.reset()
+                continue
 
     def _tactical_books_filter_exp(self):
         """
@@ -389,6 +404,7 @@ class RewardTacticalClass(Dock):
         logger.hr('Tactical class receive', level=1)
         received = False
         study_finished = not self.config.AddNewStudent_Enable
+        book_empty = False
         # tactical cards can't be loaded that fast, confirm if it's empty.
         empty_confirm = Timer(0.6, count=2).start()
         while 1:
@@ -416,6 +432,10 @@ class RewardTacticalClass(Dock):
             # Get finish time
             if self.appear(TACTICAL_CHECK, offset=(20, 20), interval=2):
                 self.interval_clear([POPUP_CONFIRM, POPUP_CANCEL, GET_MISSION])
+                if book_empty:
+                    self.device.click(BACK_ARROW)
+                    self.interval_reset(TACTICAL_CHECK)
+                    continue
                 if self._tactical_get_finish():
                     self.device.click(BACK_ARROW)
                     self.interval_reset(TACTICAL_CHECK)
@@ -434,21 +454,27 @@ class RewardTacticalClass(Dock):
 
             # Popups
             if self.appear_then_click(REWARD_2, offset=(20, 20), interval=3):
+                self.interval_reset(REWARD_2_WHITE)
                 continue
             if self.appear_then_click(REWARD_2_WHITE, offset=(20, 20), interval=3):
+                self.interval_reset(REWARD_2)
                 continue
             if self.appear_then_click(REWARD_GOTO_TACTICAL, offset=(20, 20), interval=3):
+                self.interval_reset(REWARD_GOTO_TACTICAL_WHITE)
                 continue
             if self.appear_then_click(REWARD_GOTO_TACTICAL_WHITE, offset=(20, 20), interval=3):
+                self.interval_reset(REWARD_GOTO_TACTICAL)
                 continue
             if self.ui_main_appear_then_click(page_reward, interval=3):
                 continue
             if self.handle_popup_confirm('TACTICAL'):
+                self.interval_reset([BOOK_EMPTY_POPUP])
                 continue
             if self.handle_urgent_commission():
                 # Only one button in the middle, when skill reach max level.
                 continue
             if self.ui_page_main_popups():
+                self.interval_reset([BOOK_EMPTY_POPUP])
                 continue
             # Similar to handle_mission_popup_ack, but battle pass item expire popup has a different ACK button
             if self.appear(MISSION_POPUP_GO, offset=self._popup_offset, interval=2):
@@ -458,7 +484,7 @@ class RewardTacticalClass(Dock):
                     and self.appear(TACTICAL_CLASS_START, offset=(30, 30)):
                 if self._tactical_books_choose():
                     self.dock_select_index = 0
-                    self.interval_reset(TACTICAL_CLASS_CANCEL)
+                    self.interval_reset([TACTICAL_CLASS_CANCEL, BOOK_EMPTY_POPUP])
                     self.interval_clear([POPUP_CONFIRM, POPUP_CANCEL, GET_MISSION])
                 else:
                     study_finished = True
@@ -482,6 +508,7 @@ class RewardTacticalClass(Dock):
                     logger.info('Not going to learn skill but in dock, close it')
                     study_finished = True
                     self.device.click(BACK_ARROW)
+                self.interval_reset([BOOK_EMPTY_POPUP])
                 continue
             if self.appear(SKILL_CONFIRM, offset=(20, 20), interval=3):
                 # If not enable or can not find a skill
@@ -495,6 +522,7 @@ class RewardTacticalClass(Dock):
                     logger.info('Not going to learn skill but having SKILL_CONFIRM, close it')
                     study_finished = True
                     self.device.click(BACK_ARROW)
+                self.interval_reset([BOOK_EMPTY_POPUP])
                 continue
             if self.appear(TACTICAL_META, offset=(200, 20), interval=3):
                 # If meta's skill page, it's inappropriate
@@ -503,9 +531,21 @@ class RewardTacticalClass(Dock):
                 # Select the next ship in `select_suitable_ship()`
                 self.dock_select_index += 1
                 # Avoid exit tactical between exiting meta skill to select new ship
-                self.interval_reset(TACTICAL_CHECK)
+                self.interval_reset([TACTICAL_CHECK, BOOK_EMPTY_POPUP])
                 self.interval_clear(ADD_NEW_STUDENT)
                 continue
+            # No books
+            if self.appear(BOOK_EMPTY_POPUP, offset=(20, 20), interval=3):
+                self.device.click(BOOK_EMPTY_POPUP)
+                study_finished = True
+                received = True
+                book_empty = True
+                continue
+
+        if book_empty:
+            logger.warning('Tactical books empty, delay to tomorrow')
+            self.tactical_finish = get_server_next_update(self.config.Scheduler_ServerUpdate)
+            logger.info(f'Tactical finish: {self.tactical_finish}')
         return True
 
     def _tactical_skill_select(self, selected_skill, skip_first_screenshot=True):
@@ -534,7 +574,7 @@ class RewardTacticalClass(Dock):
     def check_skill_selected(button, image):
         area = button.area
         check_area = tuple([area[0], area[3] + 2, area[2], area[3] + 4])
-        im = rgb2gray(crop(image, check_area))
+        im = rgb2gray(crop(image, check_area, copy=False))
         return True if np.mean(im) > 127 else False
 
     def _tactical_skill_choose(self):
@@ -566,11 +606,11 @@ class RewardTacticalClass(Dock):
     def select_suitable_ship(self):
         logger.hr(f'Select suitable ship')
 
+        # Set if favorite from config
+        self.dock_favourite_set(enable=self.config.AddNewStudent_Favorite, wait_loading=False)
+
         # reset filter
         self.dock_filter_set()
-
-        # Set if favorite from config
-        self.dock_favourite_set(enable=self.config.AddNewStudent_Favorite)
 
         # No ship in dock
         if self.appear(DOCK_EMPTY, offset=(30, 30)):

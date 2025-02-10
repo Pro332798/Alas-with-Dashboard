@@ -7,20 +7,20 @@ from module.template.assets import (TEMPLATE_FORMATION_1, TEMPLATE_FORMATION_2,
 from module.ui.switch import Switch
 
 # 2023.10.19, icons on one row increased from 2 to 3
-formation = Switch('Formation', offset=(100, 200))
-formation.add_status('line_ahead', check_button=FORMATION_1)
-formation.add_status('double_line', check_button=FORMATION_2)
-formation.add_status('diamond', check_button=FORMATION_3)
+FORMATION = Switch('Formation', offset=(100, 200))
+FORMATION.add_state('line_ahead', check_button=FORMATION_1)
+FORMATION.add_state('double_line', check_button=FORMATION_2)
+FORMATION.add_state('diamond', check_button=FORMATION_3)
 
-submarine_hunt = Switch('Submarine_hunt', offset=(200, 200))
-submarine_hunt.add_status('on', check_button=SUBMARINE_HUNT_ON)
-submarine_hunt.add_status('off', check_button=SUBMARINE_HUNT_OFF)
+SUBMARINE_HUNT = Switch('Submarine_hunt', offset=(200, 200))
+SUBMARINE_HUNT.add_state('on', check_button=SUBMARINE_HUNT_ON)
+SUBMARINE_HUNT.add_state('off', check_button=SUBMARINE_HUNT_OFF)
 
-submarine_view = Switch('Submarine_view', offset=(100, 200))
-submarine_view.add_status('on', check_button=SUBMARINE_VIEW_ON)
-submarine_view.add_status('off', check_button=SUBMARINE_VIEW_OFF)
+SUBMARINE_VIEW = Switch('Submarine_view', offset=(100, 200))
+SUBMARINE_VIEW.add_state('on', check_button=SUBMARINE_VIEW_ON)
+SUBMARINE_VIEW.add_state('off', check_button=SUBMARINE_VIEW_OFF)
 
-MOB_MOVE_OFFSET = (120, 120)
+MOB_MOVE_OFFSET = (120, 200)
 
 
 class StrategyHandler(InfoHandler):
@@ -35,10 +35,10 @@ class StrategyHandler(InfoHandler):
             else:
                 self.device.screenshot()
 
-            if self.appear(STRATEGY_OPENED, offset=120):
+            if self.appear(STRATEGY_OPENED, offset=200):
                 break
 
-            if self.appear(IN_MAP, interval=5) and not self.appear(STRATEGY_OPENED, offset=120):
+            if self.appear(IN_MAP, interval=5) and not self.appear(STRATEGY_OPENED, offset=200):
                 self.device.click(STRATEGY_OPEN)
                 continue
 
@@ -54,26 +54,26 @@ class StrategyHandler(InfoHandler):
             else:
                 self.device.screenshot()
 
-            if self.appear_then_click(STRATEGY_OPENED, offset=120, interval=5):
+            if self.appear_then_click(STRATEGY_OPENED, offset=200, interval=5):
                 continue
 
-            if not self.appear(STRATEGY_OPENED, offset=120):
+            if not self.appear(STRATEGY_OPENED, offset=200):
                 break
 
-    def strategy_set_execute(self, formation_index=None, sub_view=None, sub_hunt=None):
+    def strategy_set_execute(self, formation=None, sub_view=None, sub_hunt=None):
         """
         Args:
-            formation_index (int): 1-3, or None for don't change
+            formation (str): 'line_ahead', 'double_line', 'diamond', or None for don't change
             sub_view (bool):
             sub_hunt (bool):
 
         Pages:
             in: STRATEGY_OPENED
         """
-        logger.info(f'Strategy set: formation={formation_index}, submarine_view={sub_view}, submarine_hunt={sub_hunt}')
+        logger.info(f'Strategy set: formation={formation}, submarine_view={sub_view}, submarine_hunt={sub_hunt}')
 
-        if formation_index is not None:
-            formation.set(str(formation_index), main=self)
+        if formation is not None:
+            FORMATION.set(formation, main=self)
         # Disable this until the icon bug of submarine zone is fixed
         # And don't enable MAP_HAS_DYNAMIC_RED_BORDER when using submarine
 
@@ -81,13 +81,13 @@ class StrategyHandler(InfoHandler):
 
         # Don't know when but the game bug was fixed, remove the use of SwitchWithHandler
         if sub_view is not None:
-            if submarine_view.appear(main=self):
-                submarine_view.set('on' if sub_view else 'off', main=self)
+            if SUBMARINE_VIEW.appear(main=self):
+                SUBMARINE_VIEW.set('on' if sub_view else 'off', main=self)
             else:
                 logger.warning('Setting up submarine_view but no icon appears')
         if sub_hunt is not None:
-            if submarine_hunt.appear(main=self):
-                submarine_hunt.set('on' if sub_hunt else 'off', main=self)
+            if SUBMARINE_HUNT.appear(main=self):
+                SUBMARINE_HUNT.set('on' if sub_hunt else 'off', main=self)
             else:
                 logger.warning('Setting up submarine_hunt but no icon appears')
 
@@ -110,7 +110,7 @@ class StrategyHandler(InfoHandler):
 
         self.strategy_open()
         self.strategy_set_execute(
-            formation_index=expected_formation,
+            formation=expected_formation,
             sub_view=False,
             sub_hunt=bool(self.config.Submarine_Fleet) and self.config.Submarine_Mode in ['hunt_only', 'hunt_and_boss']
         )
@@ -123,7 +123,7 @@ class StrategyHandler(InfoHandler):
         Returns:
             int: Formation index.
         """
-        image = self.image_crop(MAP_BUFF)
+        image = self.image_crop(MAP_BUFF, copy=False)
         if TEMPLATE_FORMATION_2.match(image):
             buff = 'double_line'
         elif TEMPLATE_FORMATION_1.match(image):
@@ -156,7 +156,7 @@ class StrategyHandler(InfoHandler):
             else:
                 self.device.screenshot()
 
-            if self.appear(SUBMARINE_MOVE_ENTER, offset=120, interval=5):
+            if self.appear(SUBMARINE_MOVE_ENTER, offset=200, interval=5):
                 self.device.click(SUBMARINE_MOVE_ENTER)
 
             if self.appear(SUBMARINE_MOVE_CONFIRM, offset=(20, 20)):
@@ -180,7 +180,7 @@ class StrategyHandler(InfoHandler):
             if self.handle_popup_confirm('SUBMARINE_MOVE'):
                 pass
 
-            if self.appear(SUBMARINE_MOVE_ENTER, offset=120):
+            if self.appear(SUBMARINE_MOVE_ENTER, offset=200):
                 break
 
     def strategy_submarine_move_cancel(self, skip_first_screenshot=True):
@@ -201,7 +201,7 @@ class StrategyHandler(InfoHandler):
             if self.handle_popup_confirm('SUBMARINE_MOVE'):
                 pass
 
-            if self.appear(SUBMARINE_MOVE_ENTER, offset=120):
+            if self.appear(SUBMARINE_MOVE_ENTER, offset=200):
                 break
 
     def is_in_strategy_mob_move(self):
@@ -211,23 +211,21 @@ class StrategyHandler(InfoHandler):
         """
         return self.appear(MOB_MOVE_CANCEL, offset=(20, 20))
 
-    def strategy_get_mob_move_remain(self):
+    def strategy_has_mob_move(self):
         """
         Pages:
             in: STRATEGY_OPENED
             out: STRATEGY_OPENED
         """
-        if self.appear(MOB_MOVE_2, offset=MOB_MOVE_OFFSET):
-            return 2
-        elif self.appear(MOB_MOVE_1, offset=MOB_MOVE_OFFSET):
-            return 1
+        if self.match_template_color(MOB_MOVE_ENTER, offset=MOB_MOVE_OFFSET):
+            return True
         else:
-            return 0
+            return False
 
     def strategy_mob_move_enter(self, skip_first_screenshot=True):
         """
         Pages:
-            in: STRATEGY_OPENED, MOB_MOVE_1 or MOB_MOVE_2
+            in: STRATEGY_OPENED, MOB_MOVE_ENTER
             out: MOB_MOVE_CANCEL
         """
         logger.info('Mob move enter')
@@ -240,16 +238,14 @@ class StrategyHandler(InfoHandler):
             if self.appear(MOB_MOVE_CANCEL, offset=(20, 20)):
                 break
 
-            if self.appear_then_click(MOB_MOVE_1, offset=MOB_MOVE_OFFSET, interval=5):
-                continue
-            if self.appear_then_click(MOB_MOVE_2, offset=MOB_MOVE_OFFSET, interval=5):
+            if self.appear_then_click(MOB_MOVE_ENTER, offset=MOB_MOVE_OFFSET, interval=5):
                 continue
 
     def strategy_mob_move_cancel(self, skip_first_screenshot=True):
         """
         Pages:
             in: MOB_MOVE_CANCEL
-            out: STRATEGY_OPENED, MOB_MOVE_1 or MOB_MOVE_2
+            out: STRATEGY_OPENED, MOB_MOVE_ENTER
         """
         logger.info('Mob move cancel')
         while 1:
@@ -258,8 +254,7 @@ class StrategyHandler(InfoHandler):
             else:
                 self.device.screenshot()
 
-            if self.appear(MOB_MOVE_1, offset=MOB_MOVE_OFFSET) \
-                    or self.appear(MOB_MOVE_2, offset=MOB_MOVE_OFFSET):
+            if self.appear(MOB_MOVE_ENTER, offset=MOB_MOVE_OFFSET):
                 break
 
             if self.appear_then_click(MOB_MOVE_CANCEL, offset=(20, 20), interval=5):

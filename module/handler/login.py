@@ -53,7 +53,7 @@ class LoginHandler(UI):
                 confirm_timer.reset()
 
             # Login
-            if self.appear(LOGIN_CHECK, offset=(30, 30), interval=5) and LOGIN_CHECK.match_appear_on(self.device.image):
+            if self.match_template_color(LOGIN_CHECK, offset=(30, 30), interval=5):
                 self.device.click(LOGIN_CHECK)
                 if not login_success:
                     logger.info('Login success')
@@ -236,7 +236,8 @@ class LoginHandler(UI):
                 XPS('//*[@content-desc="请滑动阅读协议内容"]', xp, hierarchy)])
 
             test_image_original = self.device.image
-            image_handle_crop = crop(test_image_original, (start_padding_results[2], 0, start_margin_results[2], 720))
+            image_handle_crop = crop(
+                test_image_original, (start_padding_results[2], 0, start_margin_results[2], 720), copy=False)
             # Image.fromarray(image_handle_crop).show()
             sims = color_similarity_2d(image_handle_crop, color=(182, 189, 202))
             points = np.sum(sims >= 255)
