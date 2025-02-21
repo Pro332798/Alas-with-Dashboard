@@ -81,14 +81,17 @@ class OSStatus(UI):
                 continue
             else:
                 break
+        LogRes(self.config).YellowCoin = yellow_coins
 
         return yellow_coins
 
     def get_purple_coins(self) -> int:
         if self.appear(OS_SHOP_CHECK):
-            return OCR_OS_SHOP_PURPLE_COINS.ocr(self.device.image)
+            amount = OCR_OS_SHOP_PURPLE_COINS.ocr(self.device.image)
         else:
-            return OCR_SHOP_PURPLE_COINS.ocr(self.device.image)
+            amount = OCR_SHOP_PURPLE_COINS.ocr(self.device.image)
+        LogRes(self.config).PurpleCoin = amount
+        return amount
 
     def os_shop_get_coins(self):
         self._shop_yellow_coins = self.get_yellow_coins()

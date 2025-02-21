@@ -67,6 +67,7 @@ class LogRes:
             logger.warning('No such resource!')
         return True
         """
+<<<<<<< .merge_file_c8m1Wg
 
 
 if __name__ == '__main__':
@@ -75,3 +76,5 @@ if __name__ == '__main__':
     LogRes(config=config).ActionPoint = {'Total': 99999, 'Value': 99999}
     config.update()
     exit(0)
+=======
+>>>>>>> .merge_file_zJ83ka

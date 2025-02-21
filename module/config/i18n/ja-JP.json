@@ -2939,10 +2939,17 @@
       "YellowCoin": "Operation Supply Coin",
       "PurpleCoin": "Special Item Token",
       "ActionPoint": "Action Point",
+<<<<<<< .merge_file_T0k2Qe
       "Merit": "Merit",
       "Medal": "Medal",
       "Core": "Core Data",
       "GuildCoin": "Guild Coin",
+=======
+      "Merit": "Gui.Overview.Merit",
+      "Medal": "Gui.Overview.Medal",
+      "Core": "Gui.Overview.Core",
+      "GuildCoin": "Gui.Overview.GuildCoin",
+>>>>>>> .merge_file_o84Vz2
       "Log": "ログ",
       "Running": "実行中",
       "Pending": "隊列中",
